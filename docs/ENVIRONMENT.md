@@ -34,7 +34,7 @@
 
 | 变量 | 默认 | 含义 |
 |------|------|------|
-| **`SCRIPT_AGENT_LOG_FILE`** | `agent_operations.log` | 操作日志文件路径；设为 `off` / `none` / `false` / `0` / `-` 关闭文件日志。 |
+| **`SCRIPT_AGENT_LOG_FILE`** | `agent_operations.log` | 操作日志文件路径；设为 `off` / `none` / `false` / `0` / `-` 关闭文件日志。**Serverless（`VERCEL` 或 `AWS_LAMBDA_FUNCTION_NAME`）**：此处为**相对路径**时自动写到 **`/tmp/` 同名文件**；亦可显式设为 `/tmp/agent.log`。 |
 | **`SCRIPT_AGENT_VERBOSE`** | `1` | `0` / `false` / `no`：不在终端打印 `[agent]` 调试行；否则打印。 |
 | **`SCRIPT_AGENT_LOG_LLM_RESPONSES`** | `1` | `0` / `false` / `no` / `off`：**不向日志文件写入**各次模型调用的**原始返回正文**（仍会照常调用模型）。仅在 **`SCRIPT_AGENT_LOG_FILE` 未关闭**时生效。 |
 | **`SCRIPT_AGENT_LOG_LLM_RESPONSE_MAX_CHARS`** | `200000` | 单次模型返回写入日志的最大字符数；超出截断并标注全文长度。设为 **`0`** 表示不限制（日志可能非常大）。 |
@@ -111,7 +111,7 @@
 
 | 变量 | 默认 | 含义 |
 |------|------|------|
-| **`SCRIPT_AGENT_GRAPH_HTML`** | `character_graph.html` | analyze 成功后写入的 HTML 路径（相对 **进程当前工作目录**）；`off` / `none` / `false` / `0` / `-` 关闭导出。 |
+| **`SCRIPT_AGENT_GRAPH_HTML`** | `character_graph.html` | analyze 成功后写入的 HTML 路径（本地：相对 **cwd**）；**Serverless** 下相对路径会落到 **`/tmp/`**。`off` / `none` / `false` / `0` / `-` 关闭导出。 |
 
 ---
 
@@ -119,7 +119,7 @@
 
 | 变量 | 默认 | 含义 |
 |------|------|------|
-| **`SCRIPT_AGENT_REPORT_AFTER_ANALYZE`** | `md` | analyze 结束后是否自动写报告到 **当前工作目录**：`md` — 仅 Markdown；`pdf` — 仅 PDF（无 **reportlab** 时会回退 MD）；`both` — 两份；`off` / `0` / `false` / `no` / `none` / `-` — 关闭自动生成。（未知取值会跳过并写日志。） |
+| **`SCRIPT_AGENT_REPORT_AFTER_ANALYZE`** | `md` | analyze 结束后自动写报告：**本地**为 **cwd**；**Serverless** 为 **`/tmp`**。取值：`md` — 仅 Markdown；`pdf` — 仅 PDF（无 **reportlab** 时回退 MD）；`both` — 两份；`off` / `0` / `false` / `no` / `none` / `-` — 关闭。（未知取值会跳过并写日志。） |
 
 PDF 另需安装：**`pip install reportlab`**。
 
@@ -128,6 +128,7 @@ PDF 另需安装：**`pip install reportlab`**。
 ## 十一、相关代码位置
 
 - **`script_agent/agent.py`**：`LLMClient`、`ScriptAnalysisAgent` 内几乎所有 `os.getenv`。
+- **`script_agent/runtime_paths.py`**：`VERCEL` / `AWS_LAMBDA_FUNCTION_NAME` 下将日志、报告、图谱等相对路径统一到 **`/tmp`**。
 - **`script_agent/skill_library.py`**：`SCRIPT_AGENT_SKILLS_DIR`。
 
 修改默认值时请以源码为准；本文档随实现变更可能滞后，以 **`grep os.getenv`** 为准。

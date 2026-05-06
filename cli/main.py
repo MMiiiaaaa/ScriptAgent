@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from script_agent.agent import LLMClient, ScriptAnalysisAgent
+from script_agent.runtime_paths import resolve_writable_output_path, writable_output_dir
 
 
 def _default_report_stem(agent: ScriptAnalysisAgent) -> str:
@@ -78,7 +79,11 @@ def run_cli() -> None:
             if not agent.last_analysis:
                 print("请先 analyze，再导出报告。")
                 continue
-            out = Path(rest).expanduser().resolve() if rest else Path.cwd() / f"{_default_report_stem(agent)}.md"
+            out = (
+                resolve_writable_output_path(rest)
+                if rest
+                else writable_output_dir() / f"{_default_report_stem(agent)}.md"
+            )
             try:
                 saved = agent.export_analysis_report(str(out), "md")
                 agent.log_event(f"CLI report md -> {saved}")
@@ -93,7 +98,11 @@ def run_cli() -> None:
             if not agent.last_analysis:
                 print("请先 analyze，再导出报告。")
                 continue
-            out = Path(rest).expanduser().resolve() if rest else Path.cwd() / f"{_default_report_stem(agent)}.pdf"
+            out = (
+                resolve_writable_output_path(rest)
+                if rest
+                else writable_output_dir() / f"{_default_report_stem(agent)}.pdf"
+            )
             try:
                 saved = agent.export_analysis_report(str(out), "pdf")
                 agent.log_event(f"CLI report pdf -> {saved}")

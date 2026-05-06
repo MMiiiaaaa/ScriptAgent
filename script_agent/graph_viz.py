@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
+from .runtime_paths import resolve_writable_output_path
+
 
 NODE_COLORS: Dict[str, Dict[str, str]] = {
     "Character": {"background": "#5B8FF9", "border": "#3D6BC7", "highlight": "#7BA3FA"},
@@ -115,7 +117,7 @@ def write_character_graph_html(
     """
     写入独立 HTML，使用浏览器打开即可拖拽、缩放、点击查看 Tooltip。
     """
-    path = Path(output_path)
+    path = resolve_writable_output_path(output_path)
     payload = build_vis_payload(graph)
     json_text = json.dumps(payload, ensure_ascii=False)
     json_text = json_text.replace("</script>", "<\\/script>")
@@ -196,5 +198,6 @@ def write_character_graph_html(
 </body>
 </html>
 """
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(html_doc, encoding="utf-8")
     return path.resolve()

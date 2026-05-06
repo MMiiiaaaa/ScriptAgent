@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from .runtime_paths import is_serverless_readonly_cwd
+
 # --- layout ---
 SKILL_MD = "SKILL.md"
 BUNDLED_SEGMENT = "bundled"
@@ -332,6 +334,12 @@ def skill_manage(
     """create | edit | patch — write under user/<category>/<name>/"""
     root = (root or default_skills_root()).resolve()
     action = action.strip().lower()
+    if action in {"create", "edit", "patch"} and is_serverless_readonly_cwd():
+        return {
+            "ok": False,
+            "error": "当前运行环境部署目录只读（如 Vercel），无法创建或修改 skill 文件。"
+            "请在本地使用 CLI，或改用带持久磁盘的托管方式。",
+        }
     if action == "create":
         if not name.strip():
             return {"ok": False, "error": "create 需要 name。"}

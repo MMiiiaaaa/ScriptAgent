@@ -11,6 +11,11 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TextIO
 
 from .analysis_report import write_report_markdown, write_report_pdf
+from .runtime_paths import (
+    is_serverless_readonly_cwd,
+    resolve_writable_output_path,
+    writable_output_dir,
+)
 from .skill_library import (
     default_skills_root,
     format_loaded_skills_markdown,
@@ -146,7 +151,13 @@ def _resolve_agent_log_file_path() -> Optional[str]:
     raw = os.getenv("SCRIPT_AGENT_LOG_FILE", DEFAULT_AGENT_LOG_FILE).strip()
     if raw.lower() in {"off", "none", "false", "0", "-"}:
         return None
-    return raw or None
+    if not raw:
+        return None
+    # Serverless：进程 cwd 只读，相对路径日志改到 /tmp
+    if not os.path.isabs(raw) and is_serverless_readonly_cwd():
+        return os.path.join("/tmp", os.path.basename(raw) or "agent_operations.log")
+    return raw
+
 
 # =========================
 # Prompts
@@ -966,9 +977,22 @@ class ScriptAnalysisAgent:
         self._log_file_path: Optional[str] = _resolve_agent_log_file_path()
         self._log_file: Optional[TextIO] = None
         if self._log_file_path:
-            self._log_file = open(self._log_file_path, "a", encoding="utf-8", buffering=1)
-            self._write_log_file(f"===== session start pid={os.getpid()} path={self._log_file_path!r} =====")
-            atexit.register(self._atexit_close_log)
+            try:
+                self._log_file = open(
+                    self._log_file_path, "a", encoding="utf-8", buffering=1
+                )
+                self._write_log_file(
+                    f"===== session start pid={os.getpid()} path={self._log_file_path!r} ====="
+                )
+                atexit.register(self._atexit_close_log)
+            except OSError as exc:
+                attempted = self._log_file_path
+                self._log_file_path = None
+                self._log_file = None
+                if self.verbose:
+                    print(
+                        f"[agent] 文件日志不可用（{exc!r}），已跳过 path={attempted!r}"
+                    )
         self.log_event(f"Agent 初始化完成 llm_mode={self.llm.mode!r} verbose={self.verbose}")
         # Web/API：可按会话覆盖 OpenAI 兼容参数（优先于环境变量）
         self._llm_api_key_override: Optional[str] = None
@@ -1313,7 +1337,7 @@ class ScriptAnalysisAgent:
         if not self.last_analysis:
             raise ValueError("暂无分析结果，请先执行 analyze。")
         fmt_l = fmt.strip().lower()
-        path = Path(output_path).expanduser().resolve()
+        path = resolve_writable_output_path(output_path)
         raw = self.last_analysis.raw
         src = self.last_analyzed_source_path
         graph = self.last_graph_export_path
@@ -1471,7 +1495,7 @@ class ScriptAnalysisAgent:
             if self.last_analyzed_source_path
             else "剧本解析报告"
         )
-        cwd = Path.cwd()
+        cwd = writable_output_dir()
         try:
             if mode in {"md", "markdown", "1", "true", "yes"}:
                 path = cwd / f"{stem}_解析报告.md"
