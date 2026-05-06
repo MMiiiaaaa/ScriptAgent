@@ -531,12 +531,12 @@ tool_use_case: 当问题需要原文证据、细节核对、桥段定位、上�
 class LLMClient:
     """Minimal LLM adapter.
 
-    Default mode is mock for local experience.
-    Set SCRIPT_AGENT_MODE=real and implement _call_real_model to connect your provider.
+    Default mode is real (calls `_call_real_model` when Key/base/model are available).
+    Set SCRIPT_AGENT_MODE=mock for offline scaffolding without an API.
     """
 
     def __init__(self) -> None:
-        self.mode = os.getenv("SCRIPT_AGENT_MODE", "mock").strip().lower()
+        self.mode = os.getenv("SCRIPT_AGENT_MODE", "real").strip().lower()
         # 每线程复用一个 OpenAI 客户端，避免每次 complete 新建连接（TLS + HTTP 池预热很慢）。
         self._openai_local = threading.local()
 

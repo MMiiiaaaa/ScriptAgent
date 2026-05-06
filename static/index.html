@@ -45,56 +45,32 @@
     }
     .topbar h1 span { color: var(--accent); font-weight: 500; }
     .topbar-fill { flex: 1; min-width: 8px; }
-    .topbar input[type="password"], .topbar input[type="text"] {
-      font: inherit;
-      font-size: 0.8rem;
-      padding: 0.35rem 0.55rem;
-      width: min(160px, 24vw);
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-    }
-    details.config-drawer {
-      background: #121822;
-      border-bottom: 1px solid var(--border);
-      padding: 0 1rem 0.75rem;
-      font-size: 0.82rem;
-    }
-    details.config-drawer summary {
-      cursor: pointer;
-      padding: 0.55rem 0;
-      color: var(--accent);
-      font-weight: 600;
-    }
-    details.config-drawer .hint {
-      color: var(--muted);
-      font-size: 0.74rem;
-      margin: 0.35rem 0 0;
-    }
-    .config-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 0.55rem;
-      align-items: end;
-    }
-    .config-grid label {
+    .topbar-field {
       display: flex;
       flex-direction: column;
-      gap: 0.25rem;
-      color: var(--muted);
-      font-size: 0.72rem;
+      gap: 0.15rem;
+      align-items: stretch;
     }
-    .config-grid input, .config-grid select {
+    .topbar-field .topbar-lbl {
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .topbar input[type="password"], .topbar input[type="text"] {
       font: inherit;
-      font-size: 0.82rem;
-      padding: 0.4rem 0.5rem;
+      font-size: 0.78rem;
+      padding: 0.35rem 0.5rem;
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 6px;
       color: var(--text);
-      width: 100%;
     }
+    .topbar-field #openaiKey { width: min(220px, 32vw); min-width: 120px; }
+    .topbar-field #openaiBase { width: min(180px, 26vw); min-width: 100px; }
+    .topbar-field #openaiModel { width: min(130px, 20vw); min-width: 88px; }
+    .topbar button.compact { padding: 0.35rem 0.65rem; font-size: 0.78rem; }
     button {
       font: inherit;
       font-size: 0.82rem;
@@ -375,32 +351,22 @@
     <h1>剧本解析 <span>工作台</span></h1>
     <span id="healthPill" style="font-size:0.72rem;color:var(--muted);">…</span>
     <div class="topbar-fill"></div>
-    <label style="font-size:0.72rem;color:var(--muted);">本站密钥</label>
-    <input type="password" id="apiToken" placeholder="SCRIPT_AGENT_API_KEY（可选）" title="若服务端设置了 SCRIPT_AGENT_API_KEY 则必填"/>
-    <button type="button" class="ghost" id="btnSaveToken">保存</button>
+
+    <label class="topbar-field" title="密钥仅存浏览器；若服务端已配置 OPENAI_API_KEY 可留空">
+      <span class="topbar-lbl">模型 API Key</span>
+      <input type="password" id="openaiKey" autocomplete="off" placeholder="sk-…"/>
+    </label>
+    <label class="topbar-field">
+      <span class="topbar-lbl">Base URL</span>
+      <input type="text" id="openaiBase" placeholder="可选 · 兼容网关"/>
+    </label>
+    <label class="topbar-field">
+      <span class="topbar-lbl">模型</span>
+      <input type="text" id="openaiModel" placeholder="gpt-4o-mini"/>
+    </label>
+    <button type="button" class="ghost compact" id="btnClearOpenAI">清除</button>
     <a href="/docs" target="_blank" rel="noopener">API</a>
   </header>
-
-  <details class="config-drawer" open id="openaiDrawer">
-    <summary>你的模型 API（推荐 · 密钥仅存浏览器）</summary>
-    <p class="hint">部署到公网时不要在服务端配置 <code>OPENAI_API_KEY</code>，由每位使用者在此填写自己的 Key；请求经<strong>此服务器</strong>转发，请使用 HTTPS 并信任运维方。</p>
-    <div class="config-grid">
-      <label>API Key<input type="password" id="openaiKey" autocomplete="off" placeholder="sk-..."/></label>
-      <label>Base URL（可选）<input type="text" id="openaiBase" placeholder="兼容网关，可留空"/></label>
-      <label>模型<input type="text" id="openaiModel" placeholder="gpt-4o-mini"/></label>
-      <label>模式
-        <select id="agentMode">
-          <option value="real" selected>real（调用真实模型）</option>
-          <option value="">跟随服务端默认</option>
-          <option value="mock">mock（离线假数据）</option>
-        </select>
-      </label>
-    </div>
-    <div style="margin-top:0.55rem;display:flex;gap:0.45rem;flex-wrap:wrap;">
-      <button type="button" class="secondary" id="btnSaveOpenAI">保存到本机浏览器</button>
-      <button type="button" class="ghost" id="btnClearOpenAI">清除</button>
-    </div>
-  </details>
 
   <div class="layout">
     <aside class="col-left">
@@ -452,11 +418,9 @@
   <script>
 (function () {
   const LS_SID = "script_agent_session_id";
-  const LS_TOKEN = "script_agent_bearer";
   const LS_OPENAI_KEY = "script_agent_openai_key";
   const LS_OPENAI_BASE = "script_agent_openai_base";
   const LS_OPENAI_MODEL = "script_agent_openai_model";
-  const LS_AGENT_MODE = "script_agent_mode_pref";
 
   let healthOpenaiEnv = false;
 
@@ -493,16 +457,12 @@
 
   function mergeAuthHeaders() {
     const h = {};
-    const t = $("apiToken").value.trim() || localStorage.getItem(LS_TOKEN) || "";
-    if (t) h["Authorization"] = "Bearer " + t;
     const k = $("openaiKey").value.trim() || localStorage.getItem(LS_OPENAI_KEY) || "";
     const obase = $("openaiBase").value.trim() || localStorage.getItem(LS_OPENAI_BASE) || "";
     const model = $("openaiModel").value.trim() || localStorage.getItem(LS_OPENAI_MODEL) || "";
-    const mode = ($("agentMode").value || "").trim() || localStorage.getItem(LS_AGENT_MODE) || "";
     if (k) h["X-OpenAI-API-Key"] = k;
     if (obase) h["X-OpenAI-Base-URL"] = obase;
     if (model) h["X-OpenAI-Model"] = model;
-    if (mode) h["X-Script-Agent-Mode"] = mode;
     return h;
   }
 
@@ -639,53 +599,44 @@
       const j = await r.json();
       healthOpenaiEnv = !!j.openai_env_configured;
       let line = "● LLM:" + (j.llm_mode || "?");
-      line += healthOpenaiEnv ? " · 服务端已配模型密钥" : " · 可用自备 Key（见下方折叠栏）";
-      if (j.auth_required) line += " · 已启用本站密钥（顶部填写）";
+      line += healthOpenaiEnv ? " · 服务端已配模型密钥" : " · 可用自备 Key（见顶部）";
       $("healthPill").textContent = line;
     } catch {
       $("healthPill").textContent = "● 连接失败";
     }
   }
 
-  $("apiToken").value = localStorage.getItem(LS_TOKEN) || "";
   $("openaiKey").value = localStorage.getItem(LS_OPENAI_KEY) || "";
   $("openaiBase").value = localStorage.getItem(LS_OPENAI_BASE) || "";
   $("openaiModel").value = localStorage.getItem(LS_OPENAI_MODEL) || "";
-  const savedMode = localStorage.getItem(LS_AGENT_MODE);
-  if (savedMode !== null && savedMode !== "") $("agentMode").value = savedMode;
 
-  $("btnSaveToken").onclick = () => {
-    const t = $("apiToken").value.trim();
-    if (t) localStorage.setItem(LS_TOKEN, t);
-    else localStorage.removeItem(LS_TOKEN);
-    toast(t ? "已保存本站密钥" : "已清除本站密钥");
-  };
-
-  $("btnSaveOpenAI").onclick = () => {
-    const k = $("openaiKey").value.trim();
-    const b = $("openaiBase").value.trim();
-    const m = $("openaiModel").value.trim();
-    const mode = ($("agentMode").value || "").trim();
-    if (k) localStorage.setItem(LS_OPENAI_KEY, k);
-    else localStorage.removeItem(LS_OPENAI_KEY);
-    if (b) localStorage.setItem(LS_OPENAI_BASE, b);
-    else localStorage.removeItem(LS_OPENAI_BASE);
-    if (m) localStorage.setItem(LS_OPENAI_MODEL, m);
-    else localStorage.removeItem(LS_OPENAI_MODEL);
-    if (mode) localStorage.setItem(LS_AGENT_MODE, mode);
-    else localStorage.removeItem(LS_AGENT_MODE);
-    toast("模型配置已保存到本机浏览器");
-  };
+  let persistOpenAiTimer = 0;
+  function persistOpenAiPrefs() {
+    clearTimeout(persistOpenAiTimer);
+    persistOpenAiTimer = setTimeout(() => {
+      const k = $("openaiKey").value.trim();
+      const b = $("openaiBase").value.trim();
+      const m = $("openaiModel").value.trim();
+      if (k) localStorage.setItem(LS_OPENAI_KEY, k);
+      else localStorage.removeItem(LS_OPENAI_KEY);
+      if (b) localStorage.setItem(LS_OPENAI_BASE, b);
+      else localStorage.removeItem(LS_OPENAI_BASE);
+      if (m) localStorage.setItem(LS_OPENAI_MODEL, m);
+      else localStorage.removeItem(LS_OPENAI_MODEL);
+    }, 320);
+  }
+  ["openaiKey", "openaiBase", "openaiModel"].forEach((id) => {
+    $(id).addEventListener("input", persistOpenAiPrefs);
+    $(id).addEventListener("change", persistOpenAiPrefs);
+  });
 
   $("btnClearOpenAI").onclick = () => {
     $("openaiKey").value = "";
     $("openaiBase").value = "";
     $("openaiModel").value = "";
-    $("agentMode").value = "real";
     localStorage.removeItem(LS_OPENAI_KEY);
     localStorage.removeItem(LS_OPENAI_BASE);
     localStorage.removeItem(LS_OPENAI_MODEL);
-    localStorage.removeItem(LS_AGENT_MODE);
     toast("已清除本机模型配置");
   };
 
@@ -750,7 +701,7 @@
     await refreshHealth();
     const userKey = $("openaiKey").value.trim() || localStorage.getItem(LS_OPENAI_KEY) || "";
     if (!userKey.trim() && !healthOpenaiEnv) {
-      toast("请填写下方「你的模型 API」中的 API Key，或由服务端配置 OPENAI_API_KEY。", true);
+      toast("请填写顶部「模型 API Key」，或由服务端配置 OPENAI_API_KEY。", true);
       return;
     }
 

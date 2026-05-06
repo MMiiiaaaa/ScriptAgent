@@ -1,0 +1,3 @@
+# Vercel：显式指定 FastAPI 入口（根目录 main.py 为 CLI，不能作为 Web 入口）
+[tool.vercel]
+entrypoint = "web.server:app"

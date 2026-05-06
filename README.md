@@ -55,11 +55,10 @@ trace 角色动机在中段不成立
 
 ## LLM 接入说明
 
-当前默认是 mock 模式（方便本地先跑通框架）。  
-如需接入真实模型：
+默认 **`SCRIPT_AGENT_MODE=real`**（走真实 OpenAI 兼容接口）。  
+离线跑通框架不写 Key 时，可设 **`SCRIPT_AGENT_MODE=mock`**。
 
-1. 设置环境变量：`SCRIPT_AGENT_MODE=real`
-2. 在 `script_agent/agent.py` 的 `LLMClient._call_real_model()` 中填入你使用的模型 SDK 调用。
+实现细节：在 `script_agent/agent.py` 的 `LLMClient._call_real_model()` 中对接你使用的模型 SDK（若沿用内置 OpenAI 客户端则配置环境变量或请求头中的 Key 即可）。
 
 ## 设计取舍
 

@@ -10,7 +10,7 @@
 
 | 变量 | 默认 | 含义 |
 |------|------|------|
-| **`SCRIPT_AGENT_MODE`** | `mock` | `mock`：不走真实 API；`real`：调用 `_call_real_model()`（OpenAI 兼容接口）。 |
+| **`SCRIPT_AGENT_MODE`** | `real` | `mock`：不走真实 API；`real`：调用 `_call_real_model()`（OpenAI 兼容接口）。 |
 | **`OPENAI_API_KEY`** | 空 | 真实模式必填：API Key。 |
 | **`OPENAI_MODEL`** | `gpt-4o-mini` | 模型名称。 |
 | **`OPENAI_BASE_URL`** | 空 | 可选：兼容网关 / 代理的 Base URL；为空则用 SDK 默认。 |
