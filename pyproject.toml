@@ -1,3 +1,14 @@
-# Vercel：显式指定 FastAPI 入口（根目录 main.py 为 CLI，不能作为 Web 入口）
+# Vercel / uv 需要 [project]；依赖请与 requirements.txt 保持一致
+[project]
+name = "script-agent"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.40.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "reportlab>=4.0.0",
+]
+
 [tool.vercel]
 entrypoint = "web.server:app"
