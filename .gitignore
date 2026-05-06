@@ -9,18 +9,27 @@ __pycache__/
 .venv/
 venv/
 
-# 运行产物与日志
+# 本地脚本（勿提交；仓库内用 *.example 作模板）
+test.sh
+web.sh
+
+# 运行产物：日志
 *.log
 agent_operations.log
-*_解析报告.pdf
+
+# 解析报告 / PDF（仓库内不需要入库的 PDF；若有必须提交的文档 PDF，可用 !路径 例外）
 *_解析报告.md
+*_解析报告.pdf
+*.pdf
+
+# 人物关系 / 任务图谱等导出 HTML（含自定义文件名）
 character_graph.html
+*_图谱*.html
+*_graph*.html
+
 analysis.json
 
 # 系统与工具
 .DS_Store
 .cursor/
 .idea/
-
-# 本地密钥脚本勿提交（仓库内用 test.sh.example 作模板）
-test.sh

@@ -540,6 +540,83 @@ class LLMClient:
         # 每线程复用一个 OpenAI 客户端，避免每次 complete 新建连接（TLS + HTTP 池预热很慢）。
         self._openai_local = threading.local()
 
+    @staticmethod
+    def _message_content_to_str(raw: Any) -> Optional[str]:
+        """OpenAI message.content：str 或多模态 list[{type,text}, ...]。"""
+        if raw is None:
+            return None
+        if isinstance(raw, str):
+            s = raw.strip()
+            return s or None
+        if isinstance(raw, list):
+            parts: List[str] = []
+            for item in raw:
+                if isinstance(item, dict):
+                    t = item.get("text")
+                    if isinstance(t, str):
+                        parts.append(t)
+                    elif item.get("type") == "text" and isinstance(item.get("content"), str):
+                        parts.append(item["content"])
+                elif isinstance(item, str):
+                    parts.append(item)
+            joined = "".join(parts).strip()
+            return joined or None
+        text = str(raw).strip()
+        return text or None
+
+    @staticmethod
+    def _extract_completion_text(resp: Any) -> str:
+        """兼容官方 SDK 对象、裸 dict、以及部分网关返回的 JSON 字符串。"""
+        if resp is None:
+            raise RuntimeError("LLM 返回空响应。")
+        if isinstance(resp, str):
+            s = resp.strip()
+            if s.startswith("{") or s.startswith("["):
+                try:
+                    return LLMClient._extract_completion_text(json.loads(s))
+                except json.JSONDecodeError:
+                    pass
+            if s:
+                return s
+            raise RuntimeError("LLM 返回空字符串。")
+        if isinstance(resp, dict):
+            choices = resp.get("choices")
+            if isinstance(choices, list) and choices:
+                ch0 = choices[0]
+                if isinstance(ch0, dict):
+                    msg = ch0.get("message")
+                    if isinstance(msg, dict):
+                        c = LLMClient._message_content_to_str(msg.get("content"))
+                        if c:
+                            return c
+                    c = LLMClient._message_content_to_str(ch0.get("content") or ch0.get("text"))
+                    if c:
+                        return c
+            raise RuntimeError(
+                "兼容网关返回 dict，但无法解析 choices[0].message.content；顶层键："
+                + ",".join(sorted(resp.keys()))
+            )
+        choices = getattr(resp, "choices", None)
+        if choices is not None:
+            if not choices:
+                raise RuntimeError("LLM 返回 choices 为空。")
+            first = choices[0]
+            msg = getattr(first, "message", None)
+            if msg is None and isinstance(first, dict):
+                msg = first.get("message")
+            if msg is None:
+                raise RuntimeError("LLM 返回缺少 message。")
+            raw_c = getattr(msg, "content", None)
+            if raw_c is None and isinstance(msg, dict):
+                raw_c = msg.get("content")
+            text = LLMClient._message_content_to_str(raw_c)
+            if text:
+                return text
+            raise RuntimeError("LLM 返回 message.content 为空。")
+        raise RuntimeError(
+            f"无法解析 LLM 响应（期望含 choices），实际类型：{type(resp).__name__}。"
+        )
+
     def complete(
         self,
         system_prompt: str,
@@ -593,14 +670,35 @@ class LLMClient:
                 {"role": "user", "content": user_prompt},
             ],
         )
-        content = resp.choices[0].message.content
-        if not content:
-            raise RuntimeError("LLM 返回空内容。")
+        content = self._extract_completion_text(resp)
+        self._reject_if_html_api_response(content)
         return content
+
+    @staticmethod
+    def _reject_if_html_api_response(content: str) -> None:
+        """兼容网关若把 Base URL 填成网站首页，会返回 SPA 的 HTML，易被误判为模型正文。"""
+        head = content.lstrip()[:800].lower()
+        if "<!doctype html" in head or head.startswith("<html"):
+            raise RuntimeError(
+                "模型接口返回了网页 HTML，而不是 Chat Completions 的 JSON。"
+                "请检查 OPENAI_BASE_URL（或网页里的 Base URL）：应为 OpenAI 兼容的 API 根路径，"
+                "通常以 /v1 结尾，例如 https://你的网关域名/v1 。"
+                "不要填控制台首页、缺少 /v1 的根地址，或会 302 到网页的路径。"
+            )
 
     def _thread_local_openai_client(self, api_key_f: str, base_raw: str, timeout_s: float):
         """同一线程内复用客户端；配置变更时在该线程重建。"""
-        sig = (api_key_f, base_raw, timeout_s)
+        try:
+            connect_s = float(os.getenv("OPENAI_CONNECT_TIMEOUT_SECONDS", "25"))
+        except ValueError:
+            connect_s = 25.0
+        try:
+            max_retries = int(os.getenv("OPENAI_MAX_RETRIES", "2"))
+        except ValueError:
+            max_retries = 2
+        max_retries = max(0, min(max_retries, 10))
+
+        sig = (api_key_f, base_raw, timeout_s, connect_s, max_retries)
         prev_sig = getattr(self._openai_local, "sig", None)
         client = getattr(self._openai_local, "client", None)
         if client is not None and prev_sig == sig:
@@ -613,7 +711,25 @@ class LLMClient:
             ) from exc
 
         base_f = base_raw.strip() or None
-        client = OpenAI(api_key=api_key_f, base_url=base_f, timeout=timeout_s)
+        # 单独限制「建连」时间，避免网关/DNS 异常时长时间假死（原先只用 float 时 connect 可能过久）
+        try:
+            import httpx
+
+            timeout = httpx.Timeout(
+                connect=connect_s,
+                read=timeout_s,
+                write=timeout_s,
+                pool=connect_s,
+            )
+        except Exception:
+            timeout = timeout_s
+
+        client = OpenAI(
+            api_key=api_key_f,
+            base_url=base_f,
+            timeout=timeout,
+            max_retries=max_retries,
+        )
         self._openai_local.client = client
         self._openai_local.sig = sig
         return client
@@ -1792,6 +1908,7 @@ class ScriptAnalysisAgent:
 
     def _llm_complete(self, label: str, system_prompt: str, user_prompt: str) -> str:
         """调用 LLM，并把本轮原始返回写入日志文件（由环境变量控制开关与长度上限）。"""
+        self._log(f"LLM 调用开始 label={label!r}")
         raw = self.llm.complete(
             system_prompt,
             user_prompt,

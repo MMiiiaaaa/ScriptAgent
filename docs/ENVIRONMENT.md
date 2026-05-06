@@ -13,8 +13,10 @@
 | **`SCRIPT_AGENT_MODE`** | `real` | `mock`：不走真实 API；`real`：调用 `_call_real_model()`（OpenAI 兼容接口）。 |
 | **`OPENAI_API_KEY`** | 空 | 真实模式必填：API Key。 |
 | **`OPENAI_MODEL`** | `gpt-4o-mini` | 模型名称。 |
-| **`OPENAI_BASE_URL`** | 空 | 可选：兼容网关 / 代理的 Base URL；为空则用 SDK 默认。 |
-| **`OPENAI_TIMEOUT_SECONDS`** | `120` | 单次请求超时（秒）。 |
+| **`OPENAI_BASE_URL`** | 空 | 可选：兼容网关的 **API 根路径**（一般为 `https://域名/v1`）；勿填网站控制台首页，否则会返回 HTML 而非模型 JSON。 |
+| **`OPENAI_TIMEOUT_SECONDS`** | `120` | 单次请求的 **读/写** 超时（秒）；建连单独见下项。 |
+| **`OPENAI_CONNECT_TIMEOUT_SECONDS`** | `25` | 与模型服务 **建立 TCP/TLS 连接** 的最长等待（秒）；过小会在弱网下易失败，过大则网关宕机时界面会像「一直卡住」。 |
+| **`OPENAI_MAX_RETRIES`** | `2` | SDK 对可重试错误的自动重试次数（`0` 表示不重试，失败更快暴露）。 |
 
 **Web 服务（`web.server`）**：
 
