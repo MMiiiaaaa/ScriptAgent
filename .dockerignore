@@ -1,0 +1,15 @@
+hermes-agent-main
+.git
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.mypy_cache
+*.log
+*.pdf
+*.md
+mirofish
+.cursor
+.env
+.venv
+venv

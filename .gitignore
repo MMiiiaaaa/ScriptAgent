@@ -1,0 +1,26 @@
+# 环境变量与密钥（勿提交）
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 运行产物与日志
+*.log
+agent_operations.log
+*_解析报告.pdf
+*_解析报告.md
+character_graph.html
+analysis.json
+
+# 系统与工具
+.DS_Store
+.cursor/
+.idea/
+
+# 本地密钥脚本勿提交（仓库内用 test.sh.example 作模板）
+test.sh

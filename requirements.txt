@@ -1,0 +1,6 @@
+# 剧本解析 Agent — Python 依赖（CLI + Web）
+openai>=1.40.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+# PDF 报告（可选；未安装时导出 PDF 会失败或走代码内回退）
+reportlab>=4.0.0

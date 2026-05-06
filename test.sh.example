@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# 复制为 test.sh 后填写密钥（test.sh 已被 .gitignore 忽略，不会上传 GitHub）
+export SCRIPT_AGENT_MODE=real
+export OPENAI_API_KEY="在此填写"
+export OPENAI_MODEL="gpt-4o-mini"
+# export OPENAI_BASE_URL="https://你的兼容网关/v1"
+
+python3 main.py

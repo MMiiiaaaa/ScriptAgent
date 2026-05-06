@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>剧本解析工作台</title>
+  <style>
+    :root {
+      --bg: #0c0f14;
+      --panel: #151a22;
+      --panel2: #1e2530;
+      --border: #2a3444;
+      --text: #e8edf4;
+      --muted: #8b97ab;
+      --accent: #5eb8ff;
+      --accent2: #7ee787;
+      --err: #ff7b72;
+      --radius: 10px;
+      --font: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      display: flex;
+      flex-direction: column;
+    }
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.55rem 1rem;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .topbar h1 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .topbar h1 span { color: var(--accent); font-weight: 500; }
+    .topbar-fill { flex: 1; min-width: 8px; }
+    .topbar input[type="password"], .topbar input[type="text"] {
+      font: inherit;
+      font-size: 0.8rem;
+      padding: 0.35rem 0.55rem;
+      width: min(160px, 24vw);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+    }
+    details.config-drawer {
+      background: #121822;
+      border-bottom: 1px solid var(--border);
+      padding: 0 1rem 0.75rem;
+      font-size: 0.82rem;
+    }
+    details.config-drawer summary {
+      cursor: pointer;
+      padding: 0.55rem 0;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    details.config-drawer .hint {
+      color: var(--muted);
+      font-size: 0.74rem;
+      margin: 0.35rem 0 0;
+    }
+    .config-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.55rem;
+      align-items: end;
+    }
+    .config-grid label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+    .config-grid input, .config-grid select {
+      font: inherit;
+      font-size: 0.82rem;
+      padding: 0.4rem 0.5rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      width: 100%;
+    }
+    button {
+      font: inherit;
+      font-size: 0.82rem;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: 0.45rem 0.85rem;
+      background: linear-gradient(180deg, var(--accent) 0%, #3d8fd9 100%);
+      color: #061018;
+      font-weight: 600;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.secondary {
+      background: var(--panel2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      font-weight: 500;
+    }
+    button.ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      font-weight: 500;
+    }
+    .layout {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+    }
+    .col-left {
+      width: min(340px, 38vw);
+      min-width: 260px;
+      border-right: 1px solid var(--border);
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .col-left h2 {
+      margin: 0;
+      padding: 0.85rem 1rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border-bottom: 1px solid var(--border);
+    }
+    #progressLog {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.65rem 0.85rem;
+      font-size: 0.78rem;
+    }
+    .plog-item {
+      padding: 0.45rem 0.55rem;
+      margin-bottom: 0.35rem;
+      border-radius: 6px;
+      background: var(--panel2);
+      border-left: 3px solid var(--accent);
+    }
+    .plog-item.done { border-left-color: var(--accent2); }
+    .plog-item .t { color: var(--muted); font-size: 0.68rem; margin-bottom: 0.15rem; }
+    .plog-item .m { color: var(--text); }
+    #progressBarWrap {
+      height: 4px;
+      background: var(--panel2);
+      margin: 0 1rem 0.65rem;
+      border-radius: 2px;
+      overflow: hidden;
+      display: none;
+    }
+    #progressBarWrap.active { display: block; }
+    #progressBar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 0.35s ease;
+    }
+    .col-right {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem 1.25rem;
+    }
+    #viewUpload .drop {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 2rem 1.25rem;
+      text-align: center;
+      background: var(--panel);
+      transition: border-color 0.2s, background 0.2s;
+      cursor: pointer;
+    }
+    #viewUpload .drop.dragover {
+      border-color: var(--accent);
+      background: rgba(94, 184, 255, 0.06);
+    }
+    #viewUpload .drop strong { color: var(--accent); }
+    #viewUpload .meta {
+      margin-top: 0.75rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    #viewUpload textarea.fallback {
+      width: 100%;
+      min-height: 120px;
+      margin-top: 1rem;
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.65rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      resize: vertical;
+    }
+    #viewUpload .actions {
+      margin-top: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    #viewChat { display: none; flex-direction: column; flex: 1; min-height: 0; }
+    #viewChat.active { display: flex; }
+    #viewUpload.hidden { display: none; }
+    .chat-head {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .chat-head span { font-size: 0.85rem; color: var(--accent2); }
+    .chat-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+    .bubble {
+      max-width: min(720px, 92%);
+      padding: 0.55rem 0.75rem;
+      border-radius: var(--radius);
+      font-size: 0.88rem;
+    }
+    .bubble.user {
+      align-self: flex-end;
+      background: rgba(94, 184, 255, 0.12);
+      border: 1px solid rgba(94, 184, 255, 0.28);
+    }
+    .bubble.bot {
+      align-self: flex-start;
+      background: var(--panel);
+      border: 1px solid var(--border);
+    }
+    .bubble .who { font-size: 0.68rem; color: var(--muted); margin-bottom: 0.2rem; }
+    .chat-input-row {
+      padding: 0.65rem 1rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 0.5rem;
+      background: var(--panel);
+    }
+    .chat-input-row input {
+      flex: 1;
+      min-width: 0;
+      font: inherit;
+      padding: 0.5rem 0.65rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+    }
+    details.trace-box {
+      margin: 0 1rem 0.75rem;
+      padding: 0.65rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.82rem;
+    }
+    .report-panel {
+      flex-shrink: 0;
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      font-size: 0.84rem;
+    }
+    .report-panel.hidden { display: none; }
+    .report-panel .meta {
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .report-panel code {
+      font-size: 0.78rem;
+      background: var(--panel2);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+    }
+    .report-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin-top: 0.45rem;
+    }
+    .report-toolbar button.dl-pdf {
+      font: inherit;
+      font-size: 0.82rem;
+      cursor: pointer;
+      padding: 0.45rem 0.85rem;
+      border-radius: 8px;
+      background: var(--panel2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      font-weight: 600;
+    }
+    .report-toolbar button.dl-pdf:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    details.trace-box textarea {
+      width: 100%;
+      min-height: 72px;
+      margin-top: 0.45rem;
+      font: inherit;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0.45rem;
+    }
+    pre.trace-out {
+      margin: 0.45rem 0 0;
+      padding: 0.55rem;
+      background: var(--bg);
+      border-radius: 6px;
+      overflow: auto;
+      max-height: 200px;
+      font-size: 0.75rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    #toast {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(120%);
+      padding: 0.55rem 1rem;
+      border-radius: 8px;
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      font-size: 0.85rem;
+      z-index: 50;
+      transition: transform 0.25s ease;
+      max-width: min(520px, 92vw);
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+    #toast.err { border-color: var(--err); color: var(--err); }
+    a { color: var(--accent); font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>剧本解析 <span>工作台</span></h1>
+    <span id="healthPill" style="font-size:0.72rem;color:var(--muted);">…</span>
+    <div class="topbar-fill"></div>
+    <label style="font-size:0.72rem;color:var(--muted);">本站密钥</label>
+    <input type="password" id="apiToken" placeholder="SCRIPT_AGENT_API_KEY（可选）" title="若服务端设置了 SCRIPT_AGENT_API_KEY 则必填"/>
+    <button type="button" class="ghost" id="btnSaveToken">保存</button>
+    <a href="/docs" target="_blank" rel="noopener">API</a>
+  </header>
+
+  <details class="config-drawer" open id="openaiDrawer">
+    <summary>你的模型 API（推荐 · 密钥仅存浏览器）</summary>
+    <p class="hint">部署到公网时不要在服务端配置 <code>OPENAI_API_KEY</code>，由每位使用者在此填写自己的 Key；请求经<strong>此服务器</strong>转发，请使用 HTTPS 并信任运维方。</p>
+    <div class="config-grid">
+      <label>API Key<input type="password" id="openaiKey" autocomplete="off" placeholder="sk-..."/></label>
+      <label>Base URL（可选）<input type="text" id="openaiBase" placeholder="兼容网关，可留空"/></label>
+      <label>模型<input type="text" id="openaiModel" placeholder="gpt-4o-mini"/></label>
+      <label>模式
+        <select id="agentMode">
+          <option value="real" selected>real（调用真实模型）</option>
+          <option value="">跟随服务端默认</option>
+          <option value="mock">mock（离线假数据）</option>
+        </select>
+      </label>
+    </div>
+    <div style="margin-top:0.55rem;display:flex;gap:0.45rem;flex-wrap:wrap;">
+      <button type="button" class="secondary" id="btnSaveOpenAI">保存到本机浏览器</button>
+      <button type="button" class="ghost" id="btnClearOpenAI">清除</button>
+    </div>
+  </details>
+
+  <div class="layout">
+    <aside class="col-left">
+      <h2>实时进度</h2>
+      <div id="progressBarWrap"><div id="progressBar"></div></div>
+      <div id="progressLog"></div>
+    </aside>
+
+    <main class="col-right">
+      <div id="viewUpload" class="panel-body">
+        <div class="drop" id="dropZone" tabindex="0">
+          <div><strong>拖拽 .txt 剧本到此处</strong></div>
+          <div class="meta">或点击选择文件 · 仅演示 UTF-8 文本</div>
+        </div>
+        <input type="file" id="fileInput" accept=".txt,text/plain" hidden/>
+        <div class="meta" id="fileLabel">未选择文件</div>
+        <label class="meta" style="display:block;margin-top:0.75rem;">或直接粘贴剧本文本（可选）</label>
+        <textarea class="fallback" id="pasteArea" placeholder="粘贴内容与上传文件二选一，解析时优先使用下方文本框非空内容"></textarea>
+        <div class="actions">
+          <button type="button" id="btnAnalyze" disabled>开始解析</button>
+          <button type="button" class="secondary" id="btnPickFile">选择文件</button>
+          <button type="button" class="ghost" id="btnClearFile">清除文件</button>
+        </div>
+      </div>
+
+      <div id="viewChat">
+        <div class="chat-head">
+          <span>解析完成 — 报告与追问</span>
+          <div style="flex:1"></div>
+          <button type="button" class="secondary" id="btnReset">重新上传剧本</button>
+        </div>
+        <div id="reportPanel" class="report-panel hidden"></div>
+        <div class="chat-scroll" id="chatBox"></div>
+        <details class="trace-box">
+          <summary>原文取证 trace（可选）</summary>
+          <textarea id="traceClaim" placeholder="输入待验证的判断…"></textarea>
+          <button type="button" class="secondary" id="btnTrace" style="margin-top:0.45rem;">取证</button>
+          <pre class="trace-out" id="traceOut">（尚无）</pre>
+        </details>
+        <div class="chat-input-row">
+          <input type="text" id="askInput" placeholder="输入追问，Enter 发送"/>
+          <button type="button" id="btnAsk">发送</button>
+        </div>
+      </div>
+    </main>
+  </div>
+  <div id="toast"></div>
+
+  <script>
+(function () {
+  const LS_SID = "script_agent_session_id";
+  const LS_TOKEN = "script_agent_bearer";
+  const LS_OPENAI_KEY = "script_agent_openai_key";
+  const LS_OPENAI_BASE = "script_agent_openai_base";
+  const LS_OPENAI_MODEL = "script_agent_openai_model";
+  const LS_AGENT_MODE = "script_agent_mode_pref";
+
+  let healthOpenaiEnv = false;
+
+  const PHASE_LABEL = {
+    start: "已开始分析",
+    skills_ready: "Skill 选课完成",
+    stage_1_chunks: "阶段1 分块完成",
+    stage_1_extract: "阶段1 全文提取中…",
+    stage_1_chunk: "阶段1 分块提取",
+    stage_1_merge: "阶段1 汇总合并中…",
+    stage_1_done: "阶段1 核心提取完成",
+    stage_2_start: "阶段2 观众评估进行中…",
+    stage_2_done: "阶段2 评估完成",
+    stage_3_start: "阶段3 改进建议生成中…",
+    stage_3_done: "阶段3 完成",
+    graph_export: "人物关系图谱已导出",
+    post_analysis_hooks: "报告 / Skill 演化等收尾",
+    complete: "全部完成",
+  };
+
+  const $ = (id) => document.getElementById(id);
+  let sessionId = "";
+  let scriptContent = "";
+  let scriptFileName = "";
+  let phaseDone = 0;
+
+  function toast(msg, isErr) {
+    const el = $("toast");
+    el.textContent = msg;
+    el.className = isErr ? "show err" : "show";
+    clearTimeout(el._t);
+    el._t = setTimeout(() => { el.className = ""; }, 4000);
+  }
+
+  function mergeAuthHeaders() {
+    const h = {};
+    const t = $("apiToken").value.trim() || localStorage.getItem(LS_TOKEN) || "";
+    if (t) h["Authorization"] = "Bearer " + t;
+    const k = $("openaiKey").value.trim() || localStorage.getItem(LS_OPENAI_KEY) || "";
+    const obase = $("openaiBase").value.trim() || localStorage.getItem(LS_OPENAI_BASE) || "";
+    const model = $("openaiModel").value.trim() || localStorage.getItem(LS_OPENAI_MODEL) || "";
+    const mode = ($("agentMode").value || "").trim() || localStorage.getItem(LS_AGENT_MODE) || "";
+    if (k) h["X-OpenAI-API-Key"] = k;
+    if (obase) h["X-OpenAI-Base-URL"] = obase;
+    if (model) h["X-OpenAI-Model"] = model;
+    if (mode) h["X-Script-Agent-Mode"] = mode;
+    return h;
+  }
+
+  function buildHeaders() {
+    return Object.assign({ "Content-Type": "application/json" }, mergeAuthHeaders());
+  }
+
+  async function downloadReportFile(url, filename) {
+    try {
+      const r = await fetch(url, { headers: mergeAuthHeaders() });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        toast(typeof err.detail === "string" ? err.detail : r.statusText, true);
+        return;
+      }
+      const blob = await r.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      toast(String(e.message || e), true);
+    }
+  }
+
+  function bindReportDownloadButtons(panel) {
+    panel.querySelectorAll("button.js-dl-report").forEach((btn) => {
+      btn.onclick = () => {
+        const kind = btn.getAttribute("data-kind");
+        if (kind === "pdf") downloadReportFile(reportPdfDownloadUrl(), "解析报告.pdf");
+        else if (kind === "md") downloadReportFile(reportMdUrl(), "解析报告.md");
+      };
+    });
+  }
+
+  function fmtTime() {
+    const d = new Date();
+    return d.toLocaleTimeString("zh-CN", { hour12: false });
+  }
+
+  function logProgress(phase, payload) {
+    const log = $("progressLog");
+    const div = document.createElement("div");
+    div.className = "plog-item";
+    const title = PHASE_LABEL[phase] || phase;
+    let extra = "";
+    if (payload && Object.keys(payload).length) {
+      extra = JSON.stringify(payload);
+      if (extra.length > 160) extra = extra.slice(0, 157) + "…";
+    }
+    div.innerHTML = "<div class=\"t\">" + fmtTime() + "</div><div class=\"m\"><strong>" + title + "</strong>"
+      + (extra ? "<br/><span style=\"color:#8b97ab\">" + escapeHtml(extra) + "</span>" : "") + "</div>";
+    if (phase === "complete") div.classList.add("done");
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+
+    const wrap = $("progressBarWrap");
+    const bar = $("progressBar");
+    wrap.classList.add("active");
+    const major = ["stage_1_done", "stage_2_done", "stage_3_done", "complete"];
+    if (major.includes(phase)) {
+      phaseDone = Math.min(phaseDone + 1, 4);
+      bar.style.width = (phaseDone / 4 * 100) + "%";
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function reportPdfUrl() {
+    return "/api/report/pdf?session_id=" + encodeURIComponent(sessionId);
+  }
+
+  function reportPdfDownloadUrl() {
+    return reportPdfUrl() + "&download=true";
+  }
+
+  function reportMdUrl() {
+    return "/api/report/md?session_id=" + encodeURIComponent(sessionId);
+  }
+
+  function renderReportPanel(hasPdf, hasMd) {
+    const panel = $("reportPanel");
+    panel.innerHTML = "";
+    panel.classList.remove("hidden");
+    if (!sessionId) {
+      panel.innerHTML = "<p class=\"meta\">会话无效，无法加载报告。</p>";
+      return;
+    }
+    if (hasPdf) {
+      let tools =
+        "<div class=\"report-toolbar\">"
+        + "<button type=\"button\" class=\"dl-pdf js-dl-report\" data-kind=\"pdf\">下载 PDF</button>";
+      if (hasMd) {
+        tools += "<button type=\"button\" class=\"dl-pdf js-dl-report\" data-kind=\"md\">下载 Markdown</button>";
+      }
+      tools += "</div>";
+      panel.innerHTML =
+        "<p class=\"meta\" style=\"margin:0 0 0.35rem\">解析报告已生成，点击按钮下载。</p>" + tools;
+      bindReportDownloadButtons(panel);
+      return;
+    }
+    if (hasMd) {
+      panel.innerHTML =
+        "<p class=\"meta\" style=\"margin:0 0 0.35rem\">当前为 Markdown 报告。若需要 PDF，请将 "
+        + "<code>SCRIPT_AGENT_REPORT_AFTER_ANALYZE</code> 设为 <code>pdf</code> 或 <code>both</code>，并安装 reportlab。</p>"
+        + "<div class=\"report-toolbar\"><button type=\"button\" class=\"dl-pdf js-dl-report\" data-kind=\"md\">下载 Markdown</button></div>";
+      bindReportDownloadButtons(panel);
+      return;
+    }
+    panel.innerHTML =
+      "<p class=\"meta\">未生成报告文件。请在启动服务的环境中设置例如 "
+      + "<code>SCRIPT_AGENT_REPORT_AFTER_ANALYZE=pdf</code>（需 <code>pip install reportlab</code>），"
+      + "重新解析后可在此下载。</p>";
+  }
+
+  function setReadyButton() {
+    const pasted = $("pasteArea").value.trim();
+    $("btnAnalyze").disabled = !(scriptContent.trim() || pasted);
+  }
+
+  function clearProgressUi() {
+    $("progressLog").innerHTML = "";
+    $("progressBar").style.width = "0%";
+    $("progressBarWrap").classList.remove("active");
+    phaseDone = 0;
+  }
+
+  async function refreshHealth() {
+    try {
+      const r = await fetch("/health");
+      const j = await r.json();
+      healthOpenaiEnv = !!j.openai_env_configured;
+      let line = "● LLM:" + (j.llm_mode || "?");
+      line += healthOpenaiEnv ? " · 服务端已配模型密钥" : " · 可用自备 Key（见下方折叠栏）";
+      if (j.auth_required) line += " · 已启用本站密钥（顶部填写）";
+      $("healthPill").textContent = line;
+    } catch {
+      $("healthPill").textContent = "● 连接失败";
+    }
+  }
+
+  $("apiToken").value = localStorage.getItem(LS_TOKEN) || "";
+  $("openaiKey").value = localStorage.getItem(LS_OPENAI_KEY) || "";
+  $("openaiBase").value = localStorage.getItem(LS_OPENAI_BASE) || "";
+  $("openaiModel").value = localStorage.getItem(LS_OPENAI_MODEL) || "";
+  const savedMode = localStorage.getItem(LS_AGENT_MODE);
+  if (savedMode !== null && savedMode !== "") $("agentMode").value = savedMode;
+
+  $("btnSaveToken").onclick = () => {
+    const t = $("apiToken").value.trim();
+    if (t) localStorage.setItem(LS_TOKEN, t);
+    else localStorage.removeItem(LS_TOKEN);
+    toast(t ? "已保存本站密钥" : "已清除本站密钥");
+  };
+
+  $("btnSaveOpenAI").onclick = () => {
+    const k = $("openaiKey").value.trim();
+    const b = $("openaiBase").value.trim();
+    const m = $("openaiModel").value.trim();
+    const mode = ($("agentMode").value || "").trim();
+    if (k) localStorage.setItem(LS_OPENAI_KEY, k);
+    else localStorage.removeItem(LS_OPENAI_KEY);
+    if (b) localStorage.setItem(LS_OPENAI_BASE, b);
+    else localStorage.removeItem(LS_OPENAI_BASE);
+    if (m) localStorage.setItem(LS_OPENAI_MODEL, m);
+    else localStorage.removeItem(LS_OPENAI_MODEL);
+    if (mode) localStorage.setItem(LS_AGENT_MODE, mode);
+    else localStorage.removeItem(LS_AGENT_MODE);
+    toast("模型配置已保存到本机浏览器");
+  };
+
+  $("btnClearOpenAI").onclick = () => {
+    $("openaiKey").value = "";
+    $("openaiBase").value = "";
+    $("openaiModel").value = "";
+    $("agentMode").value = "real";
+    localStorage.removeItem(LS_OPENAI_KEY);
+    localStorage.removeItem(LS_OPENAI_BASE);
+    localStorage.removeItem(LS_OPENAI_MODEL);
+    localStorage.removeItem(LS_AGENT_MODE);
+    toast("已清除本机模型配置");
+  };
+
+  const dropZone = $("dropZone");
+  const fileInput = $("fileInput");
+
+  dropZone.onclick = () => fileInput.click();
+  dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add("dragover"); };
+  dropZone.ondragleave = () => dropZone.classList.remove("dragover");
+  dropZone.ondrop = (e) => {
+    e.preventDefault();
+    dropZone.classList.remove("dragover");
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) loadFile(f);
+  };
+
+  $("btnPickFile").onclick = () => fileInput.click();
+  fileInput.onchange = () => {
+    const f = fileInput.files && fileInput.files[0];
+    if (f) loadFile(f);
+  };
+
+  function loadFile(file) {
+    if (!/\.txt$/i.test(file.name) && file.type && !file.type.includes("text")) {
+      toast("请使用 .txt 文本文件", true);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      scriptContent = String(reader.result || "");
+      scriptFileName = file.name;
+      $("fileLabel").textContent = "已加载：" + file.name + "（" + scriptContent.length + " 字）";
+      $("pasteArea").value = "";
+      setReadyButton();
+    };
+    reader.onerror = () => toast("读取文件失败", true);
+    reader.readAsText(file, "UTF-8");
+  }
+
+  $("btnClearFile").onclick = () => {
+    scriptContent = "";
+    scriptFileName = "";
+    fileInput.value = "";
+    $("fileLabel").textContent = "未选择文件";
+    setReadyButton();
+  };
+
+  $("pasteArea").addEventListener("input", () => {
+    if ($("pasteArea").value.trim()) {
+      scriptContent = "";
+      scriptFileName = "";
+      $("fileLabel").textContent = "使用粘贴文本";
+    }
+    setReadyButton();
+  });
+
+  async function runAnalyzeStream() {
+    const pasted = $("pasteArea").value.trim();
+    const text = pasted || scriptContent.trim();
+    if (!text) return toast("请上传文件或粘贴剧本", true);
+
+    await refreshHealth();
+    const userKey = $("openaiKey").value.trim() || localStorage.getItem(LS_OPENAI_KEY) || "";
+    if (!userKey.trim() && !healthOpenaiEnv) {
+      toast("请填写下方「你的模型 API」中的 API Key，或由服务端配置 OPENAI_API_KEY。", true);
+      return;
+    }
+
+    clearProgressUi();
+    $("btnAnalyze").disabled = true;
+    sessionId = "";
+
+    const body = {
+      script_text: text,
+      source_path: pasted ? null : (scriptFileName || null),
+      session_id: undefined,
+    };
+
+    try {
+      const r = await fetch("/api/analyze/stream", {
+        method: "POST",
+        headers: buildHeaders(),
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        toast(err.detail || r.statusText, true);
+        $("btnAnalyze").disabled = false;
+        setReadyButton();
+        return;
+      }
+      const reader = r.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let ix;
+        while ((ix = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, ix).trim();
+          buf = buf.slice(ix + 1);
+          if (!line) continue;
+          let obj;
+          try { obj = JSON.parse(line); } catch { continue; }
+          if (obj.type === "meta") {
+            sessionId = obj.session_id || "";
+            localStorage.setItem(LS_SID, sessionId);
+          } else if (obj.type === "progress") {
+            logProgress(obj.phase, obj.payload || {});
+          } else if (obj.type === "error") {
+            toast(obj.message || "解析失败", true);
+            $("btnAnalyze").disabled = false;
+            setReadyButton();
+            return;
+          } else if (obj.type === "complete") {
+            sessionId = obj.session_id || sessionId;
+            localStorage.setItem(LS_SID, sessionId);
+            logProgress("complete", {});
+            $("viewUpload").classList.add("hidden");
+            $("viewChat").classList.add("active");
+            renderReportPanel(!!obj.report_pdf_ready, !!obj.report_md_ready);
+            $("chatBox").innerHTML = "";
+            const hi = document.createElement("div");
+            hi.className = "bubble bot";
+            hi.innerHTML = "<div class=\"who\">系统</div>解析已完成。上方可下载解析报告，可在下方继续追问。";
+            $("chatBox").appendChild(hi);
+            toast("可以开始对话了");
+          }
+        }
+      }
+    } catch (e) {
+      toast(String(e.message || e), true);
+    } finally {
+      $("btnAnalyze").disabled = false;
+      setReadyButton();
+    }
+  }
+
+  $("btnAnalyze").onclick = runAnalyzeStream;
+
+  async function apiAsk(q) {
+    const r = await fetch("/api/ask", {
+      method: "POST",
+      headers: buildHeaders(),
+      body: JSON.stringify({ session_id: sessionId, question: q }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data));
+    return data.reply;
+  }
+
+  $("btnAsk").onclick = async () => {
+    const q = $("askInput").value.trim();
+    if (!q || !sessionId) return toast("请先完成解析", true);
+    const box = $("chatBox");
+    const u = document.createElement("div");
+    u.className = "bubble user";
+    u.innerHTML = "<div class=\"who\">你</div>" + escapeHtml(q);
+    box.appendChild(u);
+    $("askInput").value = "";
+    box.scrollTop = box.scrollHeight;
+    try {
+      const reply = await apiAsk(q);
+      const b = document.createElement("div");
+      b.className = "bubble bot";
+      b.innerHTML = "<div class=\"who\">助手</div>" + escapeHtml(reply);
+      box.appendChild(b);
+      box.scrollTop = box.scrollHeight;
+    } catch (e) {
+      toast(e.message, true);
+    }
+  };
+
+  $("askInput").addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") $("btnAsk").click();
+  });
+
+  $("btnReset").onclick = () => {
+    if (!confirm("将清空本会话界面进度与对话，确定重新上传？")) return;
+    $("viewChat").classList.remove("active");
+    $("viewUpload").classList.remove("hidden");
+    $("reportPanel").classList.add("hidden");
+    $("reportPanel").innerHTML = "";
+    $("chatBox").innerHTML = "";
+    $("traceOut").textContent = "（尚无）";
+    sessionId = "";
+    localStorage.removeItem(LS_SID);
+    clearProgressUi();
+    toast("请重新上传或粘贴剧本");
+  };
+
+  $("btnTrace").onclick = async () => {
+    const claim = $("traceClaim").value.trim();
+    if (!claim || !sessionId) return toast("请输入 claim 并完成解析", true);
+    try {
+      const r = await fetch("/api/trace", {
+        method: "POST",
+        headers: buildHeaders(),
+        body: JSON.stringify({ session_id: sessionId, claim }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data));
+      $("traceOut").textContent = JSON.stringify(data.result, null, 2);
+    } catch (e) {
+      toast(e.message, true);
+    }
+  };
+
+  setReadyButton();
+  refreshHealth();
+  setInterval(refreshHealth, 25000);
+})();
+  </script>
+</body>
+</html>
