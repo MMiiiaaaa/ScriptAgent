@@ -2,7 +2,7 @@
 
 当前仓库在 **`web/server.py`** 提供 **FastAPI + Uvicorn** HTTP 服务，与 **`script_agent/agent.py`** 共用同一套解析逻辑（analyze / ask / trace / skill evolve）。
 
-**从 GitHub 部署且不让访客用你的 Key**：见 **`docs/GITHUB_DEPLOY.md`**（服务端不配 `OPENAI_API_KEY`，用户在网页填写自备 Key）。
+**从 GitHub 部署且不让访客用你的 Key**：服务端不要配置 `OPENAI_API_KEY`（由用户在网页填写自备 Key）；不要把密钥写进仓库或镜像。
 
 ## 1. 本地试跑 Web
 
